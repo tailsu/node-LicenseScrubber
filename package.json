@@ -1,0 +1,20 @@
+{
+  "name": "LicenseScrubber",
+  "version": "0.1.0",
+  "description": "tries to print all licenses used in a npm module",
+  "main": "licscrub.js",
+  "dependencies": {
+    "async": "^0.9.0",
+    "colors": "^1.0.3",
+    "lodash": "^2.4.1",
+    "request": "^2.45.0",
+    "q": "^1.0.1",
+    "semver": "^4.0.3"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT"
+}
