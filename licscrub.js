@@ -88,7 +88,7 @@ function getPackageDataFromTarballUrl(tarballUrl) {
 	}
 	var repoPath = util.format("%s/%s", components[0], components[1]);
 	var packageJsonUrl = util.format("https://raw.github.com/%s/master/package.json", repoPath);
-	console.log("Trying to download %s".cyan, packageJsonUrl);
+	//console.log("Trying to download %s".cyan, packageJsonUrl);
 	return httpGet(packageJsonUrl)
 		.then(function(body) {
 			return JSON.parse(body);
@@ -139,6 +139,34 @@ function traverseDependencies(module, version, level, callback) {
 	}
 }
 
+function getLicenseUrl(packageData) {
+	var future = Q.defer();
+	var rawAccessPath = getRawAccessPath(packageData);
+	if (rawAccessPath) {
+		//console.log("Trying to find license file in %s", rawAccessPath);
+		var possibleNames = ["LICENSE", "COPYING", "LICENSE.md", "COPYING.md"]
+			.map(function(name) { return rawAccessPath + name; });
+
+		async.detectSeries(possibleNames, function(item, callback) {
+			httpGet(item)
+				.then(function() { callback(true); })
+				.fail(function() { callback(false); });
+		}, function(result) {
+			if (result) {
+				future.resolve(result);
+			} else {
+				console.log("%s has no license info.".yellow, moduleName);
+				future.reject();
+			}
+		})
+
+	} else {
+		console.log("%s has no license info.".yellow, moduleName);
+		future.reject();
+	}
+	return future.promise;
+}
+
 function printLicense(moduleName, packageData, moduleData) {
 	if (!packageData) {
 		packageData = _.find(moduleData.versions, function(v) {
@@ -156,30 +184,21 @@ function printLicense(moduleName, packageData, moduleData) {
 			licenseInfo = licenseInfo[0];
 		}
 		var licenseName = _.isString(licenseInfo) ? licenseInfo : (licenseInfo.type || licenseInfo.url);
-		console.log("%s: %s", moduleName, licenseName);
-	} else {
-		var rawAccessPath = getRawAccessPath(packageData);
-		if (rawAccessPath) {
-			console.log("Trying to find license file in %s", rawAccessPath);
-			var possibleNames = ["LICENSE", "COPYING", "LICENSE.md", "COPYING.md"]
-				.map(function(name) { return rawAccessPath + name; });
-
-			async.detectSeries(possibleNames, function(item, callback) {
-				httpGet(item)
-					.then(function() { callback(true); })
-					.fail(function() { callback(false); });
-			}, function(result) {
-				if (result) {
-					console.log("%s: %s", moduleName, result);
-				} else {
-					console.log("%s has no license info.".yellow, moduleName);
-				}
-			})
-
-		} else {
-			console.log("%s has no license info.".yellow, moduleName);
-		}
+		var licenseUrl = licenseInfo.url;
 	}
+
+	if (!licenseUrl) {
+		getLicenseUrl(packageData)
+			.then(function(licenseUrl) {
+				prettyPrintLicense(moduleName, licenseName, licenseUrl);
+			});
+	} else {
+		prettyPrintLicense(moduleName, licenseName, licenseUrl);
+	}
+}
+
+function prettyPrintLicense(module, license, licenseUrl) {
+	console.log("Appbuilder,%s,%s,,,No,%s", module, license, licenseUrl);
 }
 
 traverseDependencies(start, null, 0, function(error, moduleName, packageData, moduleData, level) {
